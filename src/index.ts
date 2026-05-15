@@ -92,8 +92,13 @@ export default function (pi: ExtensionAPI): void {
     if (tid) pi.events.emit("pi-otel:trace-active", { traceId: tid });
   });
 
-  pi.on("turn_start", async () => {
-    tracker?.noteTurn();
+  pi.on("turn_start", async (event, _ctx) => {
+    const idx = (event as any)?.turnIndex;
+    tracker?.startTurn(typeof idx === "number" ? idx : undefined);
+  });
+
+  pi.on("turn_end", async (_event, _ctx) => {
+    tracker?.endTurn();
   });
 
   pi.on("message_start", async (event, _ctx) => {
@@ -220,7 +225,6 @@ export default function (pi: ExtensionAPI): void {
 
   // TODO(SPEC §9 q1): inject TRACEPARENT into bash subprocesses once pi
   // exposes a subprocess-env hook for the bash tool.
-  // TODO(SPEC §5.3): evaluate adding `pi.turn` span around turn_start/end.
   // TODO(SPEC §7 P3): redaction + truncation for captureContent != "full".
 
 }

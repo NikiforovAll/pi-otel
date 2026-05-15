@@ -72,25 +72,3 @@ GenAI message content and per-tool execution data stay on spans (events plus the
 ```sh
 PI_OTEL_DEBUG=1 OTEL_LOG_LEVEL=warn pi
 ```
-
-## Span model
-
-```
-pi.interaction                   (root — one per user prompt;
-                                  opened in `before_agent_start`,
-                                  closed in `agent_end`)
-├── pi.llm_request               (opened in `before_provider_request`,
-                                  closed in `after_provider_response`)
-├── pi.tool.<toolName>           (one per `tool_execution_start`/end pair;
-                                  isError → span status ERROR)
-└── pi.turn                      (optional: span around each turn_start/end;
-                                  evaluate value vs noise during impl)
-```
-
-Session is not a span — it is a correlatable attribute (`pi.session.id`, plus `session.id` and `gen_ai.conversation.id` duplicates) on every span. Rationale: a pi session can run for hours; long-running spans are an OTel anti-pattern (see `_plans/SPEC.md` §5.2).
-
-## Further reading
-
-- [`_plans/SPEC.md`](_plans/SPEC.md) — source of truth for config, env vars, span model, attributes.
-- [`_plans/LAUNCHER-aspire.md`](_plans/LAUNCHER-aspire.md) — `/otel start` / `/otel stop` design.
-- [`_plans/AUDIT-sigil-pi.md`](_plans/AUDIT-sigil-pi.md) — audit of `@grafana/sigil-pi` and why we went greenfield.

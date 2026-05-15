@@ -53,6 +53,7 @@ export const ATTR_PI_SESSION_ID = "pi.session.id";
 export const ATTR_SESSION_ID = "session.id";
 export const ATTR_PI_CWD = "pi.cwd";
 export const ATTR_PI_TURN_COUNT = "pi.turn_count";
+export const ATTR_PI_TURN_INDEX = "pi.turn_index";
 export const ATTR_PI_TOOL_COUNT = "pi.tool_count";
 export const ATTR_PI_TOOL_NAME = "pi.tool.name";
 export const ATTR_PI_TOOL_CALL_ID = "pi.tool.call_id";

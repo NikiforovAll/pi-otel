@@ -36,6 +36,7 @@ import {
   ATTR_PI_USER_PROMPT,
   ATTR_PI_USER_PROMPT_LENGTH,
   ATTR_PI_TURN_COUNT,
+  ATTR_PI_TURN_INDEX,
   ATTR_PI_TOOL_COUNT,
   ATTR_ERROR_TYPE,
   ATTR_REQUEST_MODEL,
@@ -46,6 +47,7 @@ import {
   GEN_AI_SYSTEM_PI,
   SPAN_INTERACTION,
   SPAN_LLM_REQUEST,
+  SPAN_TURN,
   spanToolName,
   clampAttr,
   type ContentCapture,
@@ -135,6 +137,7 @@ type PendingMsg =
 export class SpanTracker {
   private opts: SpanTrackerOpts;
   private interaction: { span: Span; ctx: Context } | null = null;
+  private turn: { span: Span; ctx: Context; index: number } | null = null;
   private llm: LlmSlot | null = null;
   private tools = new Map<string, ToolSlot>();
   private turnCount = 0;
@@ -193,9 +196,46 @@ export class SpanTracker {
     }
     for (const slot of this.tools.values()) slot.span.end();
     this.tools.clear();
+    if (this.turn) {
+      this.turn.span.end();
+      this.turn = null;
+    }
     span.end();
     this.interaction = null;
     this.pendingMessages = [];
+  }
+
+  startTurn(turnIndex: number | undefined): void {
+    if (!this.interaction) return;
+    if (this.turn) {
+      // Defensive: a previous turn never closed — close it.
+      this.turn.span.end();
+      this.turn = null;
+    }
+    const idx = typeof turnIndex === "number" ? turnIndex : this.turnCount;
+    const attrs = this.commonAttrs();
+    attrs[ATTR_PI_TURN_INDEX] = idx;
+    const span = this.opts.tracer.startSpan(
+      SPAN_TURN,
+      { attributes: attrs },
+      this.interaction.ctx,
+    );
+    const ctx = trace.setSpan(this.interaction.ctx, span);
+    this.turn = { span, ctx, index: idx };
+    this.turnCount += 1;
+  }
+
+  endTurn(error?: unknown): void {
+    if (!this.turn) return;
+    if (error) {
+      this.turn.span.setAttribute(ATTR_ERROR_TYPE, (error as Error)?.name ?? "Error");
+      this.turn.span.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: String((error as Error)?.message ?? error),
+      });
+    }
+    this.turn.span.end();
+    this.turn = null;
   }
 
   startLlmRequest(model?: string): void {
@@ -204,7 +244,7 @@ export class SpanTracker {
       this.llm.span.end();
       this.llm = null;
     }
-    const parentCtx = this.interaction?.ctx ?? otelContext.active();
+    const parentCtx = this.turn?.ctx ?? this.interaction?.ctx ?? otelContext.active();
     const attrs = this.commonAttrs();
     attrs[ATTR_OPERATION_NAME] = "chat";
     if (model) attrs[ATTR_REQUEST_MODEL] = model;
@@ -456,10 +496,10 @@ export class SpanTracker {
   }
 
   startTool(toolCallId: string, toolName: string, input: unknown): void {
-    // Tool spans are siblings of pi.llm_request under pi.interaction (SPEC §5).
+    // Tool spans are siblings of pi.llm_request under pi.turn (SPEC §5).
     // Parenting under the LLM span would imply the tool ran *during* the model
-    // call; tools actually execute between turns.
-    const parentCtx = this.interaction?.ctx ?? otelContext.active();
+    // call; tools actually execute after it.
+    const parentCtx = this.turn?.ctx ?? this.interaction?.ctx ?? otelContext.active();
     const attrs = this.commonAttrs();
     attrs[ATTR_PI_TOOL_NAME] = toolName;
     attrs[ATTR_PI_TOOL_CALL_ID] = toolCallId;
@@ -513,10 +553,6 @@ export class SpanTracker {
     }
     slot.span.end();
     this.tools.delete(toolCallId);
-  }
-
-  noteTurn(): void {
-    this.turnCount += 1;
   }
 
   /**
