@@ -94,7 +94,3 @@ Session is not a span — it is a correlatable attribute (`pi.session.id`, plus 
 - [`_plans/SPEC.md`](_plans/SPEC.md) — source of truth for config, env vars, span model, attributes.
 - [`_plans/LAUNCHER-aspire.md`](_plans/LAUNCHER-aspire.md) — `/otel start` / `/otel stop` design.
 - [`_plans/AUDIT-sigil-pi.md`](_plans/AUDIT-sigil-pi.md) — audit of `@grafana/sigil-pi` and why we went greenfield.
-
-## License
-
-See [`NOTICE`](NOTICE) for attribution of Apache-2.0 patterns borrowed from `@grafana/sigil-pi`.
