@@ -456,7 +456,10 @@ export class SpanTracker {
   }
 
   startTool(toolCallId: string, toolName: string, input: unknown): void {
-    const parentCtx = this.llm?.ctx ?? this.interaction?.ctx ?? otelContext.active();
+    // Tool spans are siblings of pi.llm_request under pi.interaction (SPEC §5).
+    // Parenting under the LLM span would imply the tool ran *during* the model
+    // call; tools actually execute between turns.
+    const parentCtx = this.interaction?.ctx ?? otelContext.active();
     const attrs = this.commonAttrs();
     attrs[ATTR_PI_TOOL_NAME] = toolName;
     attrs[ATTR_PI_TOOL_CALL_ID] = toolCallId;
