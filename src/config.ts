@@ -138,7 +138,7 @@ export function resolveConfig(cwd: string): OtelConfig {
   const endpoint =
     process.env.OTEL_EXPORTER_OTLP_ENDPOINT ??
     merged?.endpoint ??
-    "http://localhost:4317";
+    "http://127.0.0.1:4317";
 
   const protocol = normalizeProtocol(
     process.env.OTEL_EXPORTER_OTLP_PROTOCOL ?? merged?.protocol,

@@ -74,6 +74,12 @@ export function emitLifecycleLog(
 function stringifyArg(a: unknown): string {
   if (typeof a === "string") return a;
   if (a instanceof Error) return a.stack ?? `${a.name}: ${a.message}`;
+  // grpc-js callErrorFromStatus() uses Object.assign(new Error(), status), copying
+  // code/details/metadata as own properties. In some runtimes instanceof fails across
+  // module boundaries — fall back to duck-typing so we emit the stack, not JSON.
+  if (a && typeof a === "object" && typeof (a as Record<string, unknown>).stack === "string") {
+    return (a as Record<string, unknown>).stack as string;
+  }
   try {
     return JSON.stringify(a);
   } catch {
