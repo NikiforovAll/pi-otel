@@ -40,7 +40,8 @@
     "extensions": [
       "./dist/index.js"
     ],
-    "image": "https://raw.githubusercontent.com/nikiforovall/pi-otel/main/assets/pi-otel-poster.png"
+    "image": "https://raw.githubusercontent.com/nikiforovall/pi-otel/main/assets/pi-otel-poster.png",
+    "video": "https://raw.githubusercontent.com/NikiforovAll/pi-otel/main/assets/demo.mp4"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
