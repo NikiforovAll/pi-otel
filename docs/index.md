@@ -6,7 +6,7 @@ hero:
   text: "OpenTelemetry for the pi coding agent"
   tagline: One trace tree per prompt — interaction, turns, LLM requests, and tool calls — exported via OTLP.
   image:
-    src: https://raw.githubusercontent.com/NikiforovAll/pi-otel/main/samples/lgtm/assets/grafana-metrics.png
+    src: https://raw.githubusercontent.com/NikiforovAll/pi-otel/master/samples/lgtm/assets/grafana-metrics.png
     alt: Grafana metrics dashboard showing pi-otel data
   actions:
     - theme: brand

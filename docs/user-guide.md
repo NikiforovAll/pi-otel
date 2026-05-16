@@ -40,7 +40,7 @@ Force a specific backend with `--driver=`:
 
 ## What you see in Aspire
 
-![Traces in Aspire](https://raw.githubusercontent.com/NikiforovAll/pi-otel/main/samples/aspire/assets/aspire-traces.png)
+![Traces in Aspire](https://raw.githubusercontent.com/NikiforovAll/pi-otel/master/samples/aspire/assets/aspire-traces.png)
 
 **Traces tab** — one root span (`pi.interaction`) per user prompt. Expand it to see:
 
@@ -48,7 +48,7 @@ Force a specific backend with `--driver=`:
 - `pi.llm_request` — the LLM call with token counts, model, finish reason, and full message content (when `captureContent` is `full`)
 - `pi.tool.<name>` — one span per tool execution, with input/output and error status
 
-![Metrics in Aspire](https://raw.githubusercontent.com/NikiforovAll/pi-otel/main/samples/aspire/assets/aspire-metrics.png)
+![Metrics in Aspire](https://raw.githubusercontent.com/NikiforovAll/pi-otel/master/samples/aspire/assets/aspire-metrics.png)
 
 **Metrics tab** — when `signals.metrics` is enabled:
 
@@ -56,7 +56,7 @@ Force a specific backend with `--driver=`:
 - `gen_ai.client.token.usage` — input / output / cache token histogram
 - `gen_ai.tool.duration` — tool execution latency histogram, by tool name
 
-![Logs in Aspire](https://raw.githubusercontent.com/NikiforovAll/pi-otel/main/samples/aspire/assets/aspire-logs.png)
+![Logs in Aspire](https://raw.githubusercontent.com/NikiforovAll/pi-otel/master/samples/aspire/assets/aspire-logs.png)
 
 **Structured Logs tab** — when `signals.logs` is enabled:
 

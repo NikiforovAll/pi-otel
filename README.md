@@ -9,17 +9,17 @@ OpenTelemetry tracing for [pi](https://github.com/earendil-works/pi-coding-agent
     <th align="center" colspan="3">Aspire dashboard</th>
   </tr>
   <tr>
-    <td><img src="https://raw.githubusercontent.com/NikiforovAll/pi-otel/main/samples/aspire/assets/aspire-traces.png"/></td>
-    <td><img src="https://raw.githubusercontent.com/NikiforovAll/pi-otel/main/samples/aspire/assets/aspire-metrics.png"/></td>
-    <td><img src="https://raw.githubusercontent.com/NikiforovAll/pi-otel/main/samples/aspire/assets/aspire-logs.png"/></td>
+    <td><img src="https://raw.githubusercontent.com/NikiforovAll/pi-otel/master/samples/aspire/assets/aspire-traces.png"/></td>
+    <td><img src="https://raw.githubusercontent.com/NikiforovAll/pi-otel/master/samples/aspire/assets/aspire-metrics.png"/></td>
+    <td><img src="https://raw.githubusercontent.com/NikiforovAll/pi-otel/master/samples/aspire/assets/aspire-logs.png"/></td>
   </tr>
   <tr>
     <th align="center" colspan="3">Grafana LGTM</th>
   </tr>
   <tr>
-    <td><img src="https://raw.githubusercontent.com/NikiforovAll/pi-otel/main/samples/lgtm/assets/traces-tempo.png"/></td>
-    <td><img src="https://raw.githubusercontent.com/NikiforovAll/pi-otel/main/samples/lgtm/assets/grafana-metrics.png"/></td>
-    <td><img src="https://raw.githubusercontent.com/NikiforovAll/pi-otel/main/samples/lgtm/assets/loki-logs.png"/></td>
+    <td><img src="https://raw.githubusercontent.com/NikiforovAll/pi-otel/master/samples/lgtm/assets/traces-tempo.png"/></td>
+    <td><img src="https://raw.githubusercontent.com/NikiforovAll/pi-otel/master/samples/lgtm/assets/grafana-metrics.png"/></td>
+    <td><img src="https://raw.githubusercontent.com/NikiforovAll/pi-otel/master/samples/lgtm/assets/loki-logs.png"/></td>
   </tr>
 </table>
 

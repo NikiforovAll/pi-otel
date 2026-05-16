@@ -30,15 +30,15 @@ Telemetry is in-memory only — restarting the dashboard clears all data. See [`
 
 **Traces:**
 
-![Traces in Aspire](https://raw.githubusercontent.com/NikiforovAll/pi-otel/main/samples/aspire/assets/aspire-traces.png)
+![Traces in Aspire](https://raw.githubusercontent.com/NikiforovAll/pi-otel/master/samples/aspire/assets/aspire-traces.png)
 
 **Metrics:**
 
-![Metrics in Aspire](https://raw.githubusercontent.com/NikiforovAll/pi-otel/main/samples/aspire/assets/aspire-metrics.png)
+![Metrics in Aspire](https://raw.githubusercontent.com/NikiforovAll/pi-otel/master/samples/aspire/assets/aspire-metrics.png)
 
 **Logs:**
 
-![Logs in Aspire](https://raw.githubusercontent.com/NikiforovAll/pi-otel/main/samples/aspire/assets/aspire-logs.png)
+![Logs in Aspire](https://raw.githubusercontent.com/NikiforovAll/pi-otel/master/samples/aspire/assets/aspire-logs.png)
 
 ## Grafana LGTM
 
@@ -70,15 +70,15 @@ The sample ships a pre-built Grafana dashboard (`dashboard.json`) with 8 panels:
 
 **Traces in Tempo:**
 
-![Traces in Tempo](https://raw.githubusercontent.com/NikiforovAll/pi-otel/main/samples/lgtm/assets/traces-tempo.png)
+![Traces in Tempo](https://raw.githubusercontent.com/NikiforovAll/pi-otel/master/samples/lgtm/assets/traces-tempo.png)
 
 **Metrics in Grafana:**
 
-![Metrics in Grafana](https://raw.githubusercontent.com/NikiforovAll/pi-otel/main/samples/lgtm/assets/grafana-metrics.png)
+![Metrics in Grafana](https://raw.githubusercontent.com/NikiforovAll/pi-otel/master/samples/lgtm/assets/grafana-metrics.png)
 
 **Logs in Loki:**
 
-![Logs in Loki](https://raw.githubusercontent.com/NikiforovAll/pi-otel/main/samples/lgtm/assets/loki-logs.png)
+![Logs in Loki](https://raw.githubusercontent.com/NikiforovAll/pi-otel/master/samples/lgtm/assets/loki-logs.png)
 
 ## Other backends
 
