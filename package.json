@@ -31,10 +31,8 @@
   },
   "files": [
     "dist",
-    "assets",
     "LICENSE",
-    "README.md",
-    ".pi"
+    "README.md"
   ],
   "pi": {
     "extensions": [
