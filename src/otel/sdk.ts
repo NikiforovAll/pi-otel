@@ -82,6 +82,14 @@ type ExporterCtor<T> = new (opts: {
   headers: Record<string, string>;
 }) => T;
 
+/**
+ * HTTP OTLP exporters require signal-specific paths appended to the base
+ * endpoint (e.g. `/v1/traces`). The OTel SDK only auto-appends these when
+ * the endpoint comes from env vars or defaults — passing `url` directly
+ * bypasses that logic. We append the path ourselves for HTTP protocols.
+ *
+ * @see https://github.com/NikiforovAll/pi-otel/issues/4
+ */
 function pickByProtocol<T>(
   cfg: OtelConfig,
   ctors: {
@@ -89,11 +97,16 @@ function pickByProtocol<T>(
     proto: ExporterCtor<T>;
     http: ExporterCtor<T>;
   },
+  signalPath: "v1/traces" | "v1/metrics" | "v1/logs",
 ): T {
-  const opts = { url: cfg.endpoint, headers: cfg.headers };
-  if (cfg.protocol === "http/protobuf") return new ctors.proto(opts);
-  if (cfg.protocol === "http/json") return new ctors.http(opts);
-  return new ctors.grpc(opts);
+  const base = cfg.endpoint.replace(/\/+$/, "");
+  if (cfg.protocol === "http/protobuf") {
+    return new ctors.proto({ url: `${base}/${signalPath}`, headers: cfg.headers });
+  }
+  if (cfg.protocol === "http/json") {
+    return new ctors.http({ url: `${base}/${signalPath}`, headers: cfg.headers });
+  }
+  return new ctors.grpc({ url: cfg.endpoint, headers: cfg.headers });
 }
 
 export function initSdk(
@@ -113,11 +126,11 @@ export function initSdk(
     [ATTR_PI_CWD]: cfg.cwd,
   });
 
-  const traceExporter = pickByProtocol(cfg, {
-    grpc: GrpcExporter,
-    proto: ProtoExporter,
-    http: HttpExporter,
-  });
+  const traceExporter = pickByProtocol(
+    cfg,
+    { grpc: GrpcExporter, proto: ProtoExporter, http: HttpExporter },
+    "v1/traces",
+  );
   const spanProcessor = new BatchSpanProcessor(traceExporter);
 
   const sampler =
@@ -133,22 +146,22 @@ export function initSdk(
     ...(sampler ? { sampler } : {}),
   };
   if (cfg.signals.metrics) {
-    const metricExporter = pickByProtocol(cfg, {
-      grpc: MetricGrpcExporter,
-      proto: MetricProtoExporter,
-      http: MetricHttpExporter,
-    });
+    const metricExporter = pickByProtocol(
+      cfg,
+      { grpc: MetricGrpcExporter, proto: MetricProtoExporter, http: MetricHttpExporter },
+      "v1/metrics",
+    );
     sdkOpts.metricReader = new PeriodicExportingMetricReader({
       exporter: metricExporter,
       exportIntervalMillis: 10_000,
     });
   }
   if (cfg.signals.logs) {
-    const logExporter = pickByProtocol(cfg, {
-      grpc: LogGrpcExporter,
-      proto: LogProtoExporter,
-      http: LogHttpExporter,
-    });
+    const logExporter = pickByProtocol(
+      cfg,
+      { grpc: LogGrpcExporter, proto: LogProtoExporter, http: LogHttpExporter },
+      "v1/logs",
+    );
     sdkOpts.logRecordProcessors = [new BatchLogRecordProcessor(logExporter)];
   }
 
