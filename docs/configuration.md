@@ -31,7 +31,7 @@ Both use the same `"otel"` key:
 | Key | Default | Description |
 | --- | --- | --- |
 | `enabled` | `true` | Master switch. `false` makes the extension a complete no-op. |
-| `endpoint` | `http://localhost:4317` | OTLP receiver URL. Targets local Aspire on gRPC 4317 by default. |
+| `endpoint` | `http://localhost:4317` | OTLP receiver URL. Targets local Aspire on gRPC 4317 by default. For the `http/*` protocols this is the **base** URL — each signal appends its own path (`/v1/traces`, `/v1/metrics`, `/v1/logs`). For `grpc` it is used as-is. |
 | `protocol` | `grpc` | `grpc` (port 4317), `http/protobuf` (port 4318), or `http/json` (port 4318). |
 | `headers` | `{}` | Map of OTLP headers — use for auth tokens to cloud backends. |
 | `serviceName` | `"pi"` | Value of the `service.name` resource attribute. |

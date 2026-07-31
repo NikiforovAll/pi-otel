@@ -65,16 +65,41 @@ export function probeEndpoint(
   endpoint: string,
   timeoutMs = 300,
 ): Promise<boolean> {
+  const target = parseProbeTarget(endpoint);
+  if (!target) return Promise.resolve(false);
+  return probeTcp(target.host, target.port, timeoutMs);
+}
+
+/** null on an unparseable endpoint. */
+export function parseProbeTarget(
+  endpoint: string,
+): { host: string; port: number } | null {
   let u: URL;
   try {
     u = new URL(endpoint);
   } catch {
-    return Promise.resolve(false);
+    return null;
   }
-  // OTLP endpoints always carry an explicit port; refuse to fall back to
-  // 80/443, which could silently green-light an unrelated service.
-  if (!u.port) return Promise.resolve(false);
-  return probeTcp(u.hostname || "127.0.0.1", Number(u.port), timeoutMs);
+  // SaaS OTLP backends are served on the scheme default port (Node strips it,
+  // so `u.port` is ""), so fall back to 80/443 rather than refusing to probe.
+  return {
+    host: u.hostname || "127.0.0.1",
+    port: u.port ? Number(u.port) : u.protocol === "https:" ? 443 : 80,
+  };
+}
+
+export type Signal = "traces" | "metrics" | "logs";
+
+/**
+ * HTTP OTLP is per-signal: the configured endpoint is a BASE url and each
+ * signal appends its own resource path. gRPC uses the base endpoint as-is.
+ * A base that already carries a signal path is tolerated (older configs).
+ */
+export function resolveSignalUrl(endpoint: string, signal: Signal): string {
+  const base = endpoint
+    .replace(/\/+$/, "")
+    .replace(/\/v1\/(?:traces|metrics|logs)$/, "");
+  return `${base}/v1/${signal}`;
 }
 
 type ExporterCtor<T> = new (opts: {
@@ -84,16 +109,21 @@ type ExporterCtor<T> = new (opts: {
 
 function pickByProtocol<T>(
   cfg: OtelConfig,
+  signal: Signal,
   ctors: {
     grpc: ExporterCtor<T>;
     proto: ExporterCtor<T>;
     http: ExporterCtor<T>;
   },
 ): T {
-  const opts = { url: cfg.endpoint, headers: cfg.headers };
+  if (cfg.protocol === "grpc")
+    return new ctors.grpc({ url: cfg.endpoint, headers: cfg.headers });
+  const opts = {
+    url: resolveSignalUrl(cfg.endpoint, signal),
+    headers: cfg.headers,
+  };
   if (cfg.protocol === "http/protobuf") return new ctors.proto(opts);
-  if (cfg.protocol === "http/json") return new ctors.http(opts);
-  return new ctors.grpc(opts);
+  return new ctors.http(opts);
 }
 
 export function initSdk(
@@ -113,7 +143,7 @@ export function initSdk(
     [ATTR_PI_CWD]: cfg.cwd,
   });
 
-  const traceExporter = pickByProtocol(cfg, {
+  const traceExporter = pickByProtocol(cfg, "traces", {
     grpc: GrpcExporter,
     proto: ProtoExporter,
     http: HttpExporter,
@@ -133,7 +163,7 @@ export function initSdk(
     ...(sampler ? { sampler } : {}),
   };
   if (cfg.signals.metrics) {
-    const metricExporter = pickByProtocol(cfg, {
+    const metricExporter = pickByProtocol(cfg, "metrics", {
       grpc: MetricGrpcExporter,
       proto: MetricProtoExporter,
       http: MetricHttpExporter,
@@ -144,7 +174,7 @@ export function initSdk(
     });
   }
   if (cfg.signals.logs) {
-    const logExporter = pickByProtocol(cfg, {
+    const logExporter = pickByProtocol(cfg, "logs", {
       grpc: LogGrpcExporter,
       proto: LogProtoExporter,
       http: LogHttpExporter,

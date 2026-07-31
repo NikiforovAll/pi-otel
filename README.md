@@ -63,6 +63,8 @@ Backend auto-detect: Aspire CLI first, then Docker / Podman. Install one:
 }
 ```
 
+For the `http/protobuf` and `http/json` protocols, `endpoint` is the **base** URL — each signal appends its own resource path (`/v1/traces`, `/v1/metrics`, `/v1/logs`). For `grpc` the endpoint is used as-is.
+
 Key env var overrides: `OTEL_EXPORTER_OTLP_ENDPOINT`, `PI_OTEL_METRICS=1`, `PI_OTEL_LOGS=1`, `PI_OTEL_DISABLED=1`.
 
 Full reference — settings, env vars, content capture modes, sampling, logs signal, and extensibility: [nikiforovall.blog/pi-otel/configuration](https://nikiforovall.blog/pi-otel/configuration)
