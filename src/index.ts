@@ -114,6 +114,7 @@ export default function (pi: ExtensionAPI): void {
     tracker = new SpanTracker({
       tracer,
       captureContent: cfg.captureContent,
+      spanNaming: cfg.spanNaming,
       cwd: cfg.cwd,
       sessionId: () => sessionIdRef,
     });

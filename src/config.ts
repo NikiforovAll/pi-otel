@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { DiagLogLevel } from "@opentelemetry/api";
-import type { ContentCapture } from "./attrs.js";
+import type { ContentCapture, SpanNaming } from "./attrs.js";
 
 export interface OtelConfig {
   enabled: boolean;
@@ -17,6 +17,7 @@ export interface OtelConfig {
   headers: Record<string, string>;
   serviceName: string;
   captureContent: ContentCapture;
+  spanNaming: SpanNaming;
   sampleRatio: number;
   signals: {
     traces: boolean;
@@ -36,6 +37,7 @@ interface SettingsShape {
     headers: Record<string, string>;
     serviceName: string;
     captureContent: ContentCapture | boolean;
+    spanNaming: string;
     sampleRatio: number;
     signals: Partial<{ traces: boolean; metrics: boolean; logs: boolean }>;
     logLevel: string;
@@ -113,6 +115,12 @@ function normalizeLogLevel(s: string | undefined): DiagLogLevel | undefined {
   }
 }
 
+function normalizeSpanNaming(v: unknown): SpanNaming {
+  return typeof v === "string" && v.trim().toLowerCase() === "genai"
+    ? "genai"
+    : "legacy";
+}
+
 function normalizeCapture(v: unknown): ContentCapture {
   if (v === true || v === "full") return "full";
   if (v === "no_tool_content") return "no_tool_content";
@@ -156,6 +164,10 @@ export function resolveConfig(cwd: string): OtelConfig {
     process.env.PI_OTEL_CAPTURE_CONTENT ?? merged?.captureContent,
   );
 
+  const spanNaming = normalizeSpanNaming(
+    process.env.PI_OTEL_SPAN_NAMING ?? merged?.spanNaming,
+  );
+
   const sampleRatio =
     typeof merged?.sampleRatio === "number" ? merged.sampleRatio : 1.0;
 
@@ -168,6 +180,7 @@ export function resolveConfig(cwd: string): OtelConfig {
     headers,
     serviceName,
     captureContent,
+    spanNaming,
     sampleRatio,
     signals: {
       traces: merged?.signals?.traces !== false,

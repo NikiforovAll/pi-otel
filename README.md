@@ -57,6 +57,7 @@ Backend auto-detect: Aspire CLI first, then Docker / Podman. Install one:
     "headers": {},
     "serviceName": "pi",
     "captureContent": "metadata_only",
+    "spanNaming": "legacy",
     "sampleRatio": 1.0,
     "signals": { "traces": true, "metrics": false, "logs": false }
   }
@@ -65,6 +66,8 @@ Backend auto-detect: Aspire CLI first, then Docker / Podman. Install one:
 
 For the `http/protobuf` and `http/json` protocols, `endpoint` is the **base** URL — each signal appends its own resource path (`/v1/traces`, `/v1/metrics`, `/v1/logs`). For `grpc` the endpoint is used as-is.
 
-Key env var overrides: `OTEL_EXPORTER_OTLP_ENDPOINT`, `PI_OTEL_METRICS=1`, `PI_OTEL_LOGS=1`, `PI_OTEL_DISABLED=1`.
+`spanNaming: "genai"` (default `"legacy"`) renames spans to the OTel GenAI agent conventions — `invoke_agent pi` / `chat {model}` / `execute_tool {tool}` — and adds `gen_ai.operation.name` plus the spec SpanKind, so backends recognise pi as an agent. Attributes are unchanged in both modes; `legacy` keeps the `pi.*` names existing dashboards query.
+
+Key env var overrides: `OTEL_EXPORTER_OTLP_ENDPOINT`, `PI_OTEL_SPAN_NAMING=genai`, `PI_OTEL_METRICS=1`, `PI_OTEL_LOGS=1`, `PI_OTEL_DISABLED=1`.
 
 Full reference — settings, env vars, content capture modes, sampling, logs signal, and extensibility: [nikiforovall.blog/pi-otel/configuration](https://nikiforovall.blog/pi-otel/configuration)

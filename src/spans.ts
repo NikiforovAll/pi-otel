@@ -13,12 +13,15 @@ import {
   type Context,
   context as otelContext,
   type Span,
+  SpanKind,
+  type SpanOptions,
   SpanStatusCode,
   type Tracer,
   trace,
 } from "@opentelemetry/api";
 import { type LogAttributes, SeverityNumber } from "@opentelemetry/api-logs";
 import {
+  ATTR_AGENT_NAME,
   ATTR_CONVERSATION_ID,
   ATTR_ERROR_TYPE,
   ATTR_GEN_AI_INPUT_MESSAGES,
@@ -53,10 +56,15 @@ import {
   EVENT_GEN_AI_CHOICE,
   EVENT_GEN_AI_TOOL_MESSAGE,
   EVENT_GEN_AI_USER_MESSAGE,
+  GEN_AI_AGENT_NAME_PI,
   GEN_AI_SYSTEM_PI,
+  OP_CHAT,
+  OP_EXECUTE_TOOL,
+  OP_INVOKE_AGENT,
   SPAN_INTERACTION,
   SPAN_LLM_REQUEST,
   SPAN_TURN,
+  type SpanNaming,
   spanToolName,
 } from "./attrs.js";
 import { emitLifecycleLog } from "./otel/logs.js";
@@ -72,6 +80,8 @@ export interface SpanTrackerOpts {
   captureContent: ContentCapture;
   sessionId: () => string | undefined;
   cwd: string;
+  /** Defaults to "legacy" — existing dashboards key off the `pi.*` names. */
+  spanNaming?: SpanNaming;
 }
 
 interface ToolSlot {
@@ -156,6 +166,27 @@ export class SpanTracker {
     this.opts = opts;
   }
 
+  private get genai(): boolean {
+    return this.opts.spanNaming === "genai";
+  }
+
+  /**
+   * Span name + kind for one operation. In legacy mode the kind is left unset
+   * (SDK default INTERNAL) so the emitted span is byte-identical to pre-flag
+   * output.
+   */
+  private spanOpts(
+    legacyName: string,
+    genaiName: string,
+    kind: SpanKind,
+    attrs: Record<string, string | number | boolean>,
+    operation: string,
+  ): [string, SpanOptions] {
+    if (!this.genai) return [legacyName, { attributes: attrs }];
+    attrs[ATTR_OPERATION_NAME] = operation;
+    return [genaiName, { attributes: attrs, kind }];
+  }
+
   private commonAttrs(): Record<string, string | number | boolean> {
     const sid = this.opts.sessionId();
     const attrs: Record<string, string | number | boolean> = {
@@ -181,9 +212,16 @@ export class SpanTracker {
         attrs[ATTR_PI_USER_PROMPT] = clampAttr(prompt);
       }
     }
-    const span = this.opts.tracer.startSpan(SPAN_INTERACTION, {
-      attributes: attrs,
-    });
+    if (this.genai) attrs[ATTR_AGENT_NAME] = GEN_AI_AGENT_NAME_PI;
+    const span = this.opts.tracer.startSpan(
+      ...this.spanOpts(
+        SPAN_INTERACTION,
+        `${OP_INVOKE_AGENT} ${GEN_AI_AGENT_NAME_PI}`,
+        SpanKind.INTERNAL,
+        attrs,
+        OP_INVOKE_AGENT,
+      ),
+    );
     const ctx = trace.setSpan(otelContext.active(), span);
     this.interaction = { span, ctx };
   }
@@ -261,13 +299,16 @@ export class SpanTracker {
     const parentCtx =
       this.turn?.ctx ?? this.interaction?.ctx ?? otelContext.active();
     const attrs = this.commonAttrs();
-    attrs[ATTR_OPERATION_NAME] = "chat";
+    attrs[ATTR_OPERATION_NAME] = OP_CHAT;
     if (model) attrs[ATTR_REQUEST_MODEL] = model;
-    const span = this.opts.tracer.startSpan(
+    const [name, spanOpts] = this.spanOpts(
       SPAN_LLM_REQUEST,
-      { attributes: attrs },
-      parentCtx,
+      model ? `${OP_CHAT} ${model}` : OP_CHAT,
+      SpanKind.CLIENT,
+      attrs,
+      OP_CHAT,
     );
+    const span = this.opts.tracer.startSpan(name, spanOpts, parentCtx);
     const ctx = trace.setSpan(parentCtx, span);
     this.llm = {
       span,
@@ -538,11 +579,14 @@ export class SpanTracker {
       attrs[ATTR_PI_TOOL_INPUT] = clamped;
       attrs[ATTR_TOOL_CALL_ARGUMENTS] = clamped;
     }
-    const span = this.opts.tracer.startSpan(
+    const [name, spanOpts] = this.spanOpts(
       spanToolName(toolName),
-      { attributes: attrs },
-      parentCtx,
+      `${OP_EXECUTE_TOOL} ${toolName}`,
+      SpanKind.INTERNAL,
+      attrs,
+      OP_EXECUTE_TOOL,
     );
+    const span = this.opts.tracer.startSpan(name, spanOpts, parentCtx);
     const ctx = trace.setSpan(parentCtx, span);
     this.tools.set(toolCallId, { span, ctx, name: toolName });
     this.toolCount += 1;
