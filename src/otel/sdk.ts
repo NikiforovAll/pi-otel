@@ -61,20 +61,34 @@ export function probeTcp(
 // Used at session_start to avoid wiring exporters at a dead endpoint —
 // otherwise the metric reader / log processor begin retrying immediately and
 // those failures get buffered and flushed once the endpoint comes online.
-export function probeEndpoint(
+export function endpointTarget(
   endpoint: string,
-  timeoutMs = 300,
-): Promise<boolean> {
+): { host: string; port: number } | null {
   let u: URL;
   try {
     u = new URL(endpoint);
   } catch {
-    return Promise.resolve(false);
+    return null;
   }
-  // OTLP endpoints always carry an explicit port; refuse to fall back to
-  // 80/443, which could silently green-light an unrelated service.
-  if (!u.port) return Promise.resolve(false);
-  return probeTcp(u.hostname || "127.0.0.1", Number(u.port), timeoutMs);
+
+  const port = u.port
+    ? Number(u.port)
+    : u.protocol === "https:"
+      ? 443
+      : u.protocol === "http:"
+        ? 80
+        : Number.NaN;
+  if (!u.hostname || !Number.isFinite(port)) return null;
+  return { host: u.hostname, port };
+}
+
+export function probeEndpoint(
+  endpoint: string,
+  timeoutMs = 300,
+): Promise<boolean> {
+  const target = endpointTarget(endpoint);
+  if (!target) return Promise.resolve(false);
+  return probeTcp(target.host, target.port, timeoutMs);
 }
 
 type ExporterCtor<T> = new (opts: {

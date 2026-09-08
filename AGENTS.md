@@ -8,10 +8,13 @@
 npm run build       # tsc → dist/
 npm run dev         # tsc --watch
 npm run typecheck   # tsc --noEmit (fast verify; preferred mid-edit)
+npm test            # build + Node test suite
+npm run check       # Biome checks
+npm run format      # Biome formatting
 npm run clean       # rm -rf dist
 ```
 
-There is **no test suite, no linter, no formatter**. Verification = `npm run typecheck`. Behavioral checks happen by running pi against a live Aspire dashboard.
+Verification = `npm test && npm run typecheck && npm run check`.
 
 ## Architecture
 
