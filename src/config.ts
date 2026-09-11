@@ -77,7 +77,7 @@ function parseKvList(
   return out;
 }
 
-function normalizeProtocol(
+export function normalizeProtocol(
   p: string | undefined,
 ): "grpc" | "http/protobuf" | "http/json" {
   if (!p) return "grpc";

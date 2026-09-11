@@ -80,10 +80,13 @@ export function parseProbeTarget(
   } catch {
     return null;
   }
+  // Scheme-less inputs like "localhost:4318" parse with protocol "localhost:"
+  // and an empty hostname — reject those instead of probing 127.0.0.1:80.
+  if (!u.hostname || !/^https?:$/.test(u.protocol)) return null;
   // SaaS OTLP backends are served on the scheme default port (Node strips it,
   // so `u.port` is ""), so fall back to 80/443 rather than refusing to probe.
   return {
-    host: u.hostname || "127.0.0.1",
+    host: u.hostname,
     port: u.port ? Number(u.port) : u.protocol === "https:" ? 443 : 80,
   };
 }
@@ -96,10 +99,23 @@ export type Signal = "traces" | "metrics" | "logs";
  * A base that already carries a signal path is tolerated (older configs).
  */
 export function resolveSignalUrl(endpoint: string, signal: Signal): string {
-  const base = endpoint
+  let u: URL;
+  try {
+    u = new URL(endpoint);
+  } catch {
+    // Unparseable base: preserve the legacy string behavior rather than throw
+    // during exporter construction.
+    const base = endpoint
+      .replace(/\/+$/, "")
+      .replace(/\/v1\/(?:traces|metrics|logs)$/, "");
+    return `${base}/v1/${signal}`;
+  }
+  const basePath = u.pathname
     .replace(/\/+$/, "")
     .replace(/\/v1\/(?:traces|metrics|logs)$/, "");
-  return `${base}/v1/${signal}`;
+  u.pathname = `${basePath}/v1/${signal}`;
+  u.hash = "";
+  return u.toString();
 }
 
 type ExporterCtor<T> = new (opts: {
