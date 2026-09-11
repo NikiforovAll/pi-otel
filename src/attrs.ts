@@ -83,10 +83,13 @@ export const SPAN_LLM_REQUEST = "pi.llm_request";
 export const SPAN_TURN = "pi.turn";
 export const spanToolName = (name: string) => `pi.tool.${name}`;
 
-// gen_ai.operation.name values (OTel GenAI agent spans)
-export const OP_INVOKE_AGENT = "invoke_agent";
-export const OP_CHAT = "chat";
-export const OP_EXECUTE_TOOL = "execute_tool";
+// gen_ai.operation.name values — aliased to the semconv incubating exports so
+// spans and metrics share one source of truth.
+export {
+  GEN_AI_OPERATION_NAME_VALUE_CHAT as OP_CHAT,
+  GEN_AI_OPERATION_NAME_VALUE_EXECUTE_TOOL as OP_EXECUTE_TOOL,
+  GEN_AI_OPERATION_NAME_VALUE_INVOKE_AGENT as OP_INVOKE_AGENT,
+} from "@opentelemetry/semantic-conventions/incubating";
 
 /**
  * Span naming mode. `legacy` keeps the historical `pi.*` names (dashboards and

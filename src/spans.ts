@@ -535,7 +535,7 @@ export class SpanTracker {
     const elapsedSec = Number(process.hrtime.bigint() - this.llm.startNs) / 1e9;
     const baseAttrs: Record<string, string> = {
       [ATTR_SYSTEM]: GEN_AI_SYSTEM_PI,
-      [ATTR_OPERATION_NAME]: "chat",
+      [ATTR_OPERATION_NAME]: OP_CHAT,
     };
     if (this.llm.requestModel)
       baseAttrs[ATTR_REQUEST_MODEL] = this.llm.requestModel;
