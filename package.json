@@ -48,10 +48,11 @@
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "check": "biome check .",
     "format": "biome format --write .",
-    "prepare": "husky",
+    "prepare": "husky && npm run build",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs"
+    "docs:preview": "vitepress preview docs",
+    "test": "npm run build && node --test"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"

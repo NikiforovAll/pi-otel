@@ -48,7 +48,7 @@ import {
 } from "./attrs.js";
 import { registerOtelCommand } from "./commands/otel.js";
 import type { OtelConfig } from "./config.js";
-import { resolveConfig } from "./config.js";
+import { normalizeProtocol, resolveConfig } from "./config.js";
 import { emitLifecycleLog } from "./otel/logs.js";
 import { initSdk, probeEndpoint, shutdownSdk } from "./otel/sdk.js";
 import { SpanTracker } from "./spans.js";
@@ -320,7 +320,7 @@ export default function (pi: ExtensionAPI): void {
       cfg.endpoint = override.endpoint;
     }
     if (typeof override.protocol === "string" && override.protocol) {
-      cfg.protocol = override.protocol as typeof cfg.protocol;
+      cfg.protocol = normalizeProtocol(override.protocol);
     }
     await shutdownSdk();
     // Caller (e.g. /otel start) already notified success; don't clobber it.

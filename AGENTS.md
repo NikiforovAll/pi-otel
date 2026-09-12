@@ -9,9 +9,11 @@ npm run build       # tsc → dist/
 npm run dev         # tsc --watch
 npm run typecheck   # tsc --noEmit (fast verify; preferred mid-edit)
 npm run clean       # rm -rf dist
+npm test            # build + node --test (test/*.test.js)
+npm run check       # biome check .
 ```
 
-There is **no test suite, no linter, no formatter**. Verification = `npm run typecheck`. Behavioral checks happen by running pi against a live Aspire dashboard.
+Verification = `npm run typecheck` mid-edit, `npm test` before pushing. Unit tests live in `test/` (`node --test`, no framework). Behavioral checks happen by running pi against a live Aspire dashboard.
 
 ## Architecture
 
@@ -36,6 +38,7 @@ Session is **not** a span. It is `pi.session.id` / `session.id` / `gen_ai.conver
 - `src/otel/logs.ts` — LogRecord emitters. **Two loggers**: `pi-otel` for lifecycle records and `@opentelemetry/diag` for the diag bridge. The bridge is installed *after* `sdk.start()` (LoggerProvider must exist first) via `diag.setLogger`. `BRIDGE_DROP` regex filters per-export ticks. **pi-otel's own internal messages (SDK start/fail) go through `ctx.ui.notify` via the `notify` callback, NOT through `diag`** — failing OTLP machinery can't reliably report its own failures through itself.
 - `src/otel/metrics.ts` — lazy-initialized histogram handles (`getDurationHistogram`, `getTokenHistogram`, `getToolCallsHistogram`). `resetMetricHandles()` runs on shutdown.
 - `src/commands/otel.ts` — `/otel` slash command (Aspire dashboard launcher).
+- `test/` — `node --test` unit tests over `dist/` (run via `npm test`, which builds first).
 
 ### Structured logging discipline
 
