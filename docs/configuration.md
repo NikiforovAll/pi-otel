@@ -39,6 +39,7 @@ Both use the same `"otel"` key:
 | `captureContent` | `"metadata_only"` | Controls how much GenAI content lands on spans. See [Content capture](#content-capture). |
 | `spanNaming` | `"legacy"` | `legacy` keeps the `pi.*` span names; `genai` emits OTel GenAI agent span names. See [Span naming](#span-naming). |
 | `sampleRatio` | `1.0` | Probabilistic head sampling (`TraceIdRatioBased` wrapped in `ParentBased`). `1.0` = all spans; `0.1` = 10%. |
+| `propagateToShell` | `false` | Pass `TRACEPARENT` / `TRACESTATE` to processes started by the `bash` and `powershell` tools. See [Shell propagation](#shell-propagation). |
 | `signals.traces` | `true` | Emit trace spans. |
 | `signals.metrics` | `false` | Emit token / cost / latency histograms. Enable with `PI_OTEL_METRICS=1`. |
 | `signals.logs` | `false` | Emit lifecycle LogRecords and bridge OTel SDK diag to OTLP. Enable with `PI_OTEL_LOGS=1`. |
@@ -63,6 +64,7 @@ Both use the same `"otel"` key:
 | `PI_OTEL_SPAN_NAMING` | `legacy` \| `genai` |
 | `PI_OTEL_METRICS=1` | Enables the metrics signal |
 | `PI_OTEL_LOGS=1` | Enables the logs signal |
+| `PI_OTEL_PROPAGATE_TO_SHELL=1` | Enables `propagateToShell` |
 
 ## Span naming
 
@@ -112,6 +114,22 @@ pi-otel falls back to the assistant `message_start` event, which pi emits on the
 - The span starts at stream start rather than at request send, so its duration is slightly shorter than the real request latency.
 
 `gen_ai.provider.name` in genai mode and `pi.llm_request.error` logs work the same in both paths. The right long-term fix is for the provider to call `onPayload` and `onResponse`.
+
+## Shell propagation
+
+Processes started by the `bash` and `powershell` tools normally begin a new, unrelated trace. With `propagateToShell: true` (or `PI_OTEL_PROPAGATE_TO_SHELL=1`), pi-otel puts the W3C `TRACEPARENT` header, and `TRACESTATE` when present, into the child environment. An instrumented child that reads the standard env propagator then nests its spans under the `pi.tool.bash` span of the call that started it.
+
+```jsonc
+{ "otel": { "propagateToShell": true } }
+```
+
+How it works and what to expect:
+
+- pi has no hook to change the child environment of its built-in shell tools. pi-otel rebuilds the tool with pi's `spawnHook` option and registers it under the same name. pi warns once in interactive mode that an extension overrides a built-in tool. That warning is the reason the setting is off by default.
+- Only shell tools that are active in the session are overridden. On Windows with `defaultTools` set to `powershell`, only `powershell` is replaced. Rendering falls back to pi's built-in renderer, so the tool looks the same.
+- The sampling decision travels with the header. A sampled-out call injects flags `00`, and the child drops its spans too.
+- The child needs its own OpenTelemetry SDK with an env-aware propagator to pick the header up. Without one, `TRACEPARENT` is an inert variable.
+- When pi-otel is disabled at runtime, for example another SDK owns the process, the override still exists but injects nothing.
 
 ## Running alongside other OpenTelemetry extensions
 
