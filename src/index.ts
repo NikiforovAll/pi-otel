@@ -201,7 +201,18 @@ export default function (pi: ExtensionAPI): void {
   pi.on("message_start", async (event, _ctx) => {
     const msg = (event as any)?.message;
     if (!msg) return;
-    if (msg.role === "user") {
+    if (msg.role === "assistant") {
+      // Custom providers that skip options.onPayload never emit
+      // before_provider_request (#10). The stream `start` event still reaches
+      // us here, so open the span now and let message_end close it as usual.
+      if (tracker && !tracker.hasOpenLlmRequest()) {
+        tracker.startLlmRequest(
+          typeof msg.model === "string" ? msg.model : undefined,
+          typeof msg.provider === "string" ? msg.provider : undefined,
+          { synthesized: true },
+        );
+      }
+    } else if (msg.role === "user") {
       tracker?.noteUserMessage(msg.content);
     } else if (msg.role === "toolResult") {
       tracker?.noteToolResultMessage({

@@ -22,7 +22,7 @@ Trace tree, one per user prompt:
 ```
 pi.interaction                      (root — before_agent_start / agent_end)
 └── pi.turn*                        (one per turn_start / turn_end)
-    ├── pi.llm_request              (before_provider_request / message_end)
+    ├── pi.llm_request              (before_provider_request / message_end; opened from assistant message_start with pi.llm_request.synthesized=true when the provider skips onPayload, #10)
     └── pi.tool.<toolName>          (tool_execution_start / _end; isError → ERROR status)
 ```
 

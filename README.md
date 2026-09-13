@@ -70,6 +70,8 @@ For the `http/protobuf` and `http/json` protocols, `endpoint` is the **base** UR
 
 Key env var overrides: `OTEL_EXPORTER_OTLP_ENDPOINT`, `PI_OTEL_SPAN_NAMING=genai`, `PI_OTEL_METRICS=1`, `PI_OTEL_LOGS=1`, `PI_OTEL_DISABLED=1`.
 
+Custom providers that skip pi's `onPayload` hook (pi-vertex and others) still get a `pi.llm_request` span with tokens and cost, opened from the assistant `message_start` and tagged `pi.llm_request.synthesized=true`. See [custom providers](https://nikiforovall.blog/pi-otel/configuration#custom-providers-that-skip-onpayload).
+
 Only one OpenTelemetry SDK can own a process. If another extension registers its providers first, pi-otel warns once and stays disabled instead of silently routing spans into the other SDK. See [running alongside other OTel extensions](https://nikiforovall.blog/pi-otel/configuration#running-alongside-other-opentelemetry-extensions).
 
 Full reference — settings, env vars, content capture modes, sampling, logs signal, and extensibility: [nikiforovall.blog/pi-otel/configuration](https://nikiforovall.blog/pi-otel/configuration)

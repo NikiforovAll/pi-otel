@@ -102,6 +102,17 @@ OTel SDK internal diag chatter is bridged to the same OTLP endpoint under the `@
 
 pi-otel's own startup/failure messages surface via pi's native `ctx.ui.notify` — failing OTLP machinery cannot report its own failures through itself.
 
+## Custom providers that skip `onPayload`
+
+pi opens the `pi.llm_request` span on `before_provider_request`, which pi emits from `options.onPayload`. The pi custom-provider contract requires `streamSimple` implementations to call `onPayload`, but several extensions on npm do not (for example `@ssweens/pi-vertex`, `@sinamtz/pi-minimax-provider`, `@sinamtz/pi-mlx-provider`). With those, there is no LLM span and no token or cost data.
+
+pi-otel falls back to the assistant `message_start` event, which pi emits on the stream `start` event for every provider. The span is opened there and closed on `message_end` as usual, so model, finish reason, tokens, and cost are all present. Two differences from the normal path:
+
+- The span carries `pi.llm_request.synthesized=true`, and the `gen_ai.client.*` metrics carry the same attribute, so you can filter them out or compare.
+- The span starts at stream start rather than at request send, so its duration is slightly shorter than the real request latency.
+
+`gen_ai.provider.name` in genai mode and `pi.llm_request.error` logs work the same in both paths. The right long-term fix is for the provider to call `onPayload` and `onResponse`.
+
 ## Running alongside other OpenTelemetry extensions
 
 Only one OpenTelemetry SDK can own the global tracer, meter, and logger providers in a process. If another extension (for example an OTel-based Langfuse or Logfire bridge) registers its providers before pi-otel starts, a second registration would not fail loudly: `@opentelemetry/api` logs a diag error, keeps the first provider, and every pi-otel span would silently route to the other SDK.
