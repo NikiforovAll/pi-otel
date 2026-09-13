@@ -19,6 +19,7 @@ export interface OtelConfig {
   captureContent: ContentCapture;
   spanNaming: SpanNaming;
   sampleRatio: number;
+  propagateToShell: boolean;
   signals: {
     traces: boolean;
     metrics: boolean;
@@ -39,6 +40,7 @@ interface SettingsShape {
     captureContent: ContentCapture | boolean;
     spanNaming: string;
     sampleRatio: number;
+    propagateToShell: boolean;
     signals: Partial<{ traces: boolean; metrics: boolean; logs: boolean }>;
     logLevel: string;
   }>;
@@ -182,6 +184,9 @@ export function resolveConfig(cwd: string): OtelConfig {
     captureContent,
     spanNaming,
     sampleRatio,
+    propagateToShell:
+      envTrue(process.env.PI_OTEL_PROPAGATE_TO_SHELL) ||
+      merged?.propagateToShell === true,
     signals: {
       traces: merged?.signals?.traces !== false,
       metrics:

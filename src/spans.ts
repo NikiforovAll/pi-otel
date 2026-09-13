@@ -629,6 +629,10 @@ export class SpanTracker {
     }
   }
 
+  toolContext(toolCallId: string): Context | undefined {
+    return this.tools.get(toolCallId)?.ctx;
+  }
+
   startTool(toolCallId: string, toolName: string, input: unknown): void {
     // Tool spans are siblings of pi.llm_request under pi.turn (SPEC §5).
     // Parenting under the LLM span would imply the tool ran *during* the model

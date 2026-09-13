@@ -51,6 +51,7 @@ import type { OtelConfig } from "./config.js";
 import { normalizeProtocol, resolveConfig } from "./config.js";
 import { emitLifecycleLog } from "./otel/logs.js";
 import { initSdk, probeEndpoint, shutdownSdk } from "./otel/sdk.js";
+import { registerShellPropagation } from "./shell-propagation.js";
 import { SpanTracker } from "./spans.js";
 
 const TRACER_NAME = "pi-otel";
@@ -93,6 +94,7 @@ export default function (pi: ExtensionAPI): void {
   let tracker: SpanTracker | null = null;
   let sessionIdRef: string | undefined;
   let sessionStartLogged = false;
+  let shellPropagationOn = false;
 
   const notify = (
     msg: string,
@@ -151,6 +153,10 @@ export default function (pi: ExtensionAPI): void {
     if (!cfg.enabled) {
       tracker = null;
       return;
+    }
+    if (cfg.propagateToShell && cfg.signals.traces && !shellPropagationOn) {
+      shellPropagationOn = true;
+      registerShellPropagation(pi, ctx.cwd, () => tracker);
     }
     // Best-effort session id from the session manager.
     try {

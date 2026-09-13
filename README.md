@@ -72,6 +72,8 @@ Key env var overrides: `OTEL_EXPORTER_OTLP_ENDPOINT`, `PI_OTEL_SPAN_NAMING=genai
 
 Custom providers that skip pi's `onPayload` hook (pi-vertex and others) still get a `pi.llm_request` span with tokens and cost, opened from the assistant `message_start` and tagged `pi.llm_request.synthesized=true`. See [custom providers](https://nikiforovall.blog/pi-otel/configuration#custom-providers-that-skip-onpayload).
 
+`propagateToShell: true` (default `false`) passes `TRACEPARENT` to processes started by the `bash` and `powershell` tools, so instrumented children nest under the tool span. It overrides the built-in tool, which pi reports with a one-time warning. See [shell propagation](https://nikiforovall.blog/pi-otel/configuration#shell-propagation).
+
 Only one OpenTelemetry SDK can own a process. If another extension registers its providers first, pi-otel warns once and stays disabled instead of silently routing spans into the other SDK. See [running alongside other OTel extensions](https://nikiforovall.blog/pi-otel/configuration#running-alongside-other-opentelemetry-extensions).
 
 Full reference — settings, env vars, content capture modes, sampling, logs signal, and extensibility: [nikiforovall.blog/pi-otel/configuration](https://nikiforovall.blog/pi-otel/configuration)
