@@ -101,3 +101,15 @@ When `signals.logs: true`, pi-otel exports **lifecycle LogRecords** via OTLP:
 OTel SDK internal diag chatter is bridged to the same OTLP endpoint under the `@opentelemetry/diag` instrumentation scope, with noisy per-export ticks filtered out. `OTEL_LOG_LEVEL` controls the severity floor.
 
 pi-otel's own startup/failure messages surface via pi's native `ctx.ui.notify` — failing OTLP machinery cannot report its own failures through itself.
+
+## Running alongside other OpenTelemetry extensions
+
+Only one OpenTelemetry SDK can own the global tracer, meter, and logger providers in a process. If another extension (for example an OTel-based Langfuse or Logfire bridge) registers its providers before pi-otel starts, a second registration would not fail loudly: `@opentelemetry/api` logs a diag error, keeps the first provider, and every pi-otel span would silently route to the other SDK.
+
+pi-otel checks for this before it starts. When it finds a provider it did not register, it shows one warning through `ctx.ui.notify` and stays disabled for that process:
+
+```text
+pi-otel: another OpenTelemetry SDK already registered global providers (trace); pi-otel telemetry is disabled for this process. Unload the other extension, or set PI_OTEL_DISABLED=1 to silence this.
+```
+
+The same check covers pi-otel loaded twice, for example from npm and from a git checkout in `packages`. There is no mode that attaches pi-otel exporters to a foreign SDK: the two extensions ship separate copies of the SDK classes, so a span processor from one cannot be installed on a provider from the other.

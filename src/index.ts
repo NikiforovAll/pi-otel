@@ -109,7 +109,13 @@ export default function (pi: ExtensionAPI): void {
     cfg: OtelConfig,
     opts: { silentSuccess?: boolean } = {},
   ): void {
-    initSdk(cfg, notify, opts);
+    if (!initSdk(cfg, notify, opts)) {
+      // Without our own SDK the global tracer belongs to someone else (#9)
+      // or is a noop; either way no tracker.
+      tracker = null;
+      pi.events.emit("pi-otel:status", { state: "disabled" });
+      return;
+    }
     const tracer = trace.getTracer(TRACER_NAME, TRACER_VERSION);
     tracker = new SpanTracker({
       tracer,
