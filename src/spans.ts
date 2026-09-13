@@ -30,6 +30,7 @@ import {
   ATTR_OPERATION_NAME,
   ATTR_OUTPUT_TOKENS,
   ATTR_PI_CWD,
+  ATTR_PI_LLM_SYNTHESIZED,
   ATTR_PI_SESSION_ID,
   ATTR_PI_TOOL_CALL_ID,
   ATTR_PI_TOOL_COUNT,
@@ -100,6 +101,7 @@ interface LlmSlot {
   inputTokens?: number;
   outputTokens?: number;
   toolCallCount?: number;
+  synthesized?: boolean;
 }
 
 /**
@@ -324,7 +326,20 @@ export class SpanTracker {
    * `provider` is the best-known request-start provider id (e.g.
    * `ctx.model?.provider`); normalized and attached only in genai mode.
    */
-  startLlmRequest(model?: string, provider?: string): void {
+  hasOpenLlmRequest(): boolean {
+    return this.llm !== null;
+  }
+
+  /**
+   * `synthesized` marks a span opened from the assistant `message_start`
+   * because the provider never emitted `before_provider_request` (#10). The
+   * span then starts at stream start rather than at request send.
+   */
+  startLlmRequest(
+    model?: string,
+    provider?: string,
+    opts: { synthesized?: boolean } = {},
+  ): void {
     if (this.llm) {
       // Should not happen — defensive close.
       this.llm.span.end();
@@ -335,6 +350,7 @@ export class SpanTracker {
     const attrs = this.commonAttrs();
     attrs[ATTR_OPERATION_NAME] = OP_CHAT;
     if (model) attrs[ATTR_REQUEST_MODEL] = model;
+    if (opts.synthesized) attrs[ATTR_PI_LLM_SYNTHESIZED] = true;
     const normalizedProvider = this.genai
       ? normalizeProviderName(provider)
       : undefined;
@@ -353,6 +369,7 @@ export class SpanTracker {
       ctx,
       startNs: process.hrtime.bigint(),
       requestModel: model,
+      synthesized: opts.synthesized,
     };
     this.currentInputMessages = [];
     this.flushPendingMessages();
@@ -590,6 +607,7 @@ export class SpanTracker {
     if (this.llm.responseModel)
       baseAttrs[ATTR_RESPONSE_MODEL] = this.llm.responseModel;
     if (error) baseAttrs[ATTR_ERROR_TYPE] = (error as Error)?.name ?? "Error";
+    if (this.llm.synthesized) baseAttrs[ATTR_PI_LLM_SYNTHESIZED] = "true";
 
     try {
       getDurationHistogram().record(elapsedSec, baseAttrs);

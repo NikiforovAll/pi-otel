@@ -61,6 +61,9 @@ export const ATTR_PI_TOOL_IS_ERROR = "pi.tool.is_error";
 export const ATTR_PI_TOOL_INPUT = "pi.tool.input";
 export const ATTR_PI_TOOL_OUTPUT = "pi.tool.output";
 export const ATTR_PI_COST_USD = "pi.cost.usd";
+// Set when the LLM span was opened from the assistant message_start instead
+// of before_provider_request, i.e. the provider skipped options.onPayload.
+export const ATTR_PI_LLM_SYNTHESIZED = "pi.llm_request.synthesized";
 export const ATTR_PI_USER_PROMPT = "pi.user_prompt";
 export const ATTR_PI_USER_PROMPT_LENGTH = "pi.user_prompt_length";
 
