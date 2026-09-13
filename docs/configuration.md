@@ -20,6 +20,7 @@ Both use the same `"otel"` key:
     "headers": {},
     "serviceName": "pi",
     "captureContent": "metadata_only",
+    "spanNaming": "legacy",
     "sampleRatio": 1.0,
     "signals": { "traces": true, "metrics": false, "logs": false }
   }
@@ -36,6 +37,7 @@ Both use the same `"otel"` key:
 | `headers` | `{}` | Map of OTLP headers — use for auth tokens to cloud backends. |
 | `serviceName` | `"pi"` | Value of the `service.name` resource attribute. |
 | `captureContent` | `"metadata_only"` | Controls how much GenAI content lands on spans. See [Content capture](#content-capture). |
+| `spanNaming` | `"legacy"` | `legacy` keeps the `pi.*` span names; `genai` emits OTel GenAI agent span names. See [Span naming](#span-naming). |
 | `sampleRatio` | `1.0` | Probabilistic head sampling (`TraceIdRatioBased` wrapped in `ParentBased`). `1.0` = all spans; `0.1` = 10%. |
 | `signals.traces` | `true` | Emit trace spans. |
 | `signals.metrics` | `false` | Emit token / cost / latency histograms. Enable with `PI_OTEL_METRICS=1`. |
@@ -58,8 +60,24 @@ Both use the same `"otel"` key:
 | --- | --- |
 | `PI_OTEL_DISABLED=1` | Disables the extension entirely |
 | `PI_OTEL_CAPTURE_CONTENT` | `metadata_only` \| `no_tool_content` \| `full` |
+| `PI_OTEL_SPAN_NAMING` | `legacy` \| `genai` |
 | `PI_OTEL_METRICS=1` | Enables the metrics signal |
 | `PI_OTEL_LOGS=1` | Enables the logs signal |
+
+## Span naming
+
+`spanNaming` selects how spans are named and classified. `genai` mode adds three things on top of `legacy`: `gen_ai.operation.name` on the interaction and tool spans, `gen_ai.agent.name` on the interaction span, and `gen_ai.provider.name` on the chat span when the inference provider is known — no existing attribute is ever removed, so both modes carry the same `gen_ai.*` and `pi.*` data plus these genai-only additions. `gen_ai.agent.name` is always the fixed literal `"pi"` — it identifies the agent, not the deployment, and is independent of the configurable `serviceName` (`service.name` resource attribute).
+
+| Span | `legacy` (default) | `genai` |
+| --- | --- | --- |
+| Interaction | `pi.interaction`, kind unset (INTERNAL) | `invoke_agent pi`, `gen_ai.operation.name=invoke_agent`, `gen_ai.agent.name=pi`, kind `INTERNAL` |
+| Turn | `pi.turn` | `pi.turn` (no spec equivalent — unchanged) |
+| LLM request | `pi.llm_request`, `gen_ai.operation.name=chat` | `chat {gen_ai.request.model}`, kind `CLIENT`, `gen_ai.provider.name` (request's inference provider, when known) |
+| Tool call | `pi.tool.{name}` | `execute_tool {gen_ai.tool.name}`, `gen_ai.operation.name=execute_tool`, kind `INTERNAL` |
+
+Use `genai` when your backend (Logfire, Braintrust, Grafana GenAI panels) keys off `gen_ai.operation.name` to recognise agent traces. Keep `legacy` if you have dashboards or saved queries built on the `pi.*` span names — the bundled `samples/lgtm/dashboard.json` queries metrics only (`gen_ai_system` label), so it works in either mode; a custom saved query keyed on `pi.*` span names would still need `legacy`.
+
+Names follow the [OTel GenAI agent span conventions](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-agent-spans.md).
 
 ## Content capture
 

@@ -13,12 +13,15 @@ import {
   type Context,
   context as otelContext,
   type Span,
+  SpanKind,
+  type SpanOptions,
   SpanStatusCode,
   type Tracer,
   trace,
 } from "@opentelemetry/api";
 import { type LogAttributes, SeverityNumber } from "@opentelemetry/api-logs";
 import {
+  ATTR_AGENT_NAME,
   ATTR_CONVERSATION_ID,
   ATTR_ERROR_TYPE,
   ATTR_GEN_AI_INPUT_MESSAGES,
@@ -38,6 +41,7 @@ import {
   ATTR_PI_TURN_INDEX,
   ATTR_PI_USER_PROMPT,
   ATTR_PI_USER_PROMPT_LENGTH,
+  ATTR_PROVIDER_NAME,
   ATTR_REQUEST_MODEL,
   ATTR_RESPONSE_MODEL,
   ATTR_SESSION_ID,
@@ -53,10 +57,15 @@ import {
   EVENT_GEN_AI_CHOICE,
   EVENT_GEN_AI_TOOL_MESSAGE,
   EVENT_GEN_AI_USER_MESSAGE,
+  GEN_AI_AGENT_NAME_PI,
   GEN_AI_SYSTEM_PI,
+  OP_CHAT,
+  OP_EXECUTE_TOOL,
+  OP_INVOKE_AGENT,
   SPAN_INTERACTION,
   SPAN_LLM_REQUEST,
   SPAN_TURN,
+  type SpanNaming,
   spanToolName,
 } from "./attrs.js";
 import { emitLifecycleLog } from "./otel/logs.js";
@@ -72,6 +81,8 @@ export interface SpanTrackerOpts {
   captureContent: ContentCapture;
   sessionId: () => string | undefined;
   cwd: string;
+  /** Defaults to "legacy" — existing dashboards key off the `pi.*` names. */
+  spanNaming?: SpanNaming;
 }
 
 interface ToolSlot {
@@ -136,6 +147,35 @@ function extractToolCalls(
   return calls;
 }
 
+// Provider IDs whose pi id differs from the semconv `gen_ai.provider.name`
+// value (registry rev 0c875949). Canonical/custom ids pass through unchanged.
+const PROVIDER_NAME_ALIASES: Record<string, string> = {
+  "amazon-bedrock": "aws.bedrock",
+  "azure-openai-responses": "azure.ai.openai",
+  google: "gcp.gemini",
+  "google-vertex": "gcp.vertex_ai",
+  "kimi-coding": "moonshot_ai",
+  moonshotai: "moonshot_ai",
+  "moonshotai-cn": "moonshot_ai",
+  mistral: "mistral_ai",
+  xai: "x_ai",
+  "openai-codex": "openai",
+};
+
+/**
+ * Normalize a pi provider id to the semconv `gen_ai.provider.name` value.
+ * Returns undefined for blank/non-string input so callers can treat it as
+ * "unknown" rather than setting an empty attribute.
+ */
+function normalizeProviderName(provider: unknown): string | undefined {
+  if (typeof provider !== "string") return undefined;
+  const trimmed = provider.trim();
+  if (!trimmed) return undefined;
+  return Object.hasOwn(PROVIDER_NAME_ALIASES, trimmed)
+    ? PROVIDER_NAME_ALIASES[trimmed]
+    : trimmed;
+}
+
 type PendingMsg =
   | { kind: "user"; content: string }
   | { kind: "tool"; content: string; toolCallId: string; toolName?: string };
@@ -154,6 +194,27 @@ export class SpanTracker {
 
   constructor(opts: SpanTrackerOpts) {
     this.opts = opts;
+  }
+
+  private get genai(): boolean {
+    return this.opts.spanNaming === "genai";
+  }
+
+  /**
+   * Span name + kind for one operation. In legacy mode the kind is left unset
+   * (SDK default INTERNAL) so the emitted span is byte-identical to pre-flag
+   * output.
+   */
+  private spanOpts(
+    legacyName: string,
+    genaiName: string,
+    kind: SpanKind,
+    attrs: Record<string, string | number | boolean>,
+    operation: string,
+  ): [string, SpanOptions] {
+    if (!this.genai) return [legacyName, { attributes: attrs }];
+    attrs[ATTR_OPERATION_NAME] = operation;
+    return [genaiName, { attributes: attrs, kind }];
   }
 
   private commonAttrs(): Record<string, string | number | boolean> {
@@ -181,9 +242,16 @@ export class SpanTracker {
         attrs[ATTR_PI_USER_PROMPT] = clampAttr(prompt);
       }
     }
-    const span = this.opts.tracer.startSpan(SPAN_INTERACTION, {
-      attributes: attrs,
-    });
+    if (this.genai) attrs[ATTR_AGENT_NAME] = GEN_AI_AGENT_NAME_PI;
+    const span = this.opts.tracer.startSpan(
+      ...this.spanOpts(
+        SPAN_INTERACTION,
+        `${OP_INVOKE_AGENT} ${GEN_AI_AGENT_NAME_PI}`,
+        SpanKind.INTERNAL,
+        attrs,
+        OP_INVOKE_AGENT,
+      ),
+    );
     const ctx = trace.setSpan(otelContext.active(), span);
     this.interaction = { span, ctx };
   }
@@ -252,7 +320,11 @@ export class SpanTracker {
     this.turn = null;
   }
 
-  startLlmRequest(model?: string): void {
+  /**
+   * `provider` is the best-known request-start provider id (e.g.
+   * `ctx.model?.provider`); normalized and attached only in genai mode.
+   */
+  startLlmRequest(model?: string, provider?: string): void {
     if (this.llm) {
       // Should not happen — defensive close.
       this.llm.span.end();
@@ -261,13 +333,20 @@ export class SpanTracker {
     const parentCtx =
       this.turn?.ctx ?? this.interaction?.ctx ?? otelContext.active();
     const attrs = this.commonAttrs();
-    attrs[ATTR_OPERATION_NAME] = "chat";
+    attrs[ATTR_OPERATION_NAME] = OP_CHAT;
     if (model) attrs[ATTR_REQUEST_MODEL] = model;
-    const span = this.opts.tracer.startSpan(
+    const normalizedProvider = this.genai
+      ? normalizeProviderName(provider)
+      : undefined;
+    if (normalizedProvider) attrs[ATTR_PROVIDER_NAME] = normalizedProvider;
+    const [name, spanOpts] = this.spanOpts(
       SPAN_LLM_REQUEST,
-      { attributes: attrs },
-      parentCtx,
+      model ? `${OP_CHAT} ${model}` : OP_CHAT,
+      SpanKind.CLIENT,
+      attrs,
+      OP_CHAT,
     );
+    const span = this.opts.tracer.startSpan(name, spanOpts, parentCtx);
     const ctx = trace.setSpan(parentCtx, span);
     this.llm = {
       span,
@@ -370,6 +449,16 @@ export class SpanTracker {
     if (!this.llm) return;
     if (typeof message?.model === "string")
       this.llm.responseModel = message.model;
+    if (this.genai) {
+      // Response confirmation/fallback: a valid response provider corrects or
+      // fills the request-start value on the same open span. A missing or
+      // invalid response provider leaves the request-start value (if any)
+      // intact — no cached global state, no fabricated "unknown" sentinel.
+      const responseProvider = normalizeProviderName(message?.provider);
+      if (responseProvider) {
+        this.llm.span.setAttribute(ATTR_PROVIDER_NAME, responseProvider);
+      }
+    }
     const allowTool = this.opts.captureContent === "full";
     const toolCalls = extractToolCalls(message?.content, allowTool);
     this.llm.toolCallCount = toolCalls.length;
@@ -494,7 +583,7 @@ export class SpanTracker {
     const elapsedSec = Number(process.hrtime.bigint() - this.llm.startNs) / 1e9;
     const baseAttrs: Record<string, string> = {
       [ATTR_SYSTEM]: GEN_AI_SYSTEM_PI,
-      [ATTR_OPERATION_NAME]: "chat",
+      [ATTR_OPERATION_NAME]: OP_CHAT,
     };
     if (this.llm.requestModel)
       baseAttrs[ATTR_REQUEST_MODEL] = this.llm.requestModel;
@@ -538,11 +627,14 @@ export class SpanTracker {
       attrs[ATTR_PI_TOOL_INPUT] = clamped;
       attrs[ATTR_TOOL_CALL_ARGUMENTS] = clamped;
     }
-    const span = this.opts.tracer.startSpan(
+    const [name, spanOpts] = this.spanOpts(
       spanToolName(toolName),
-      { attributes: attrs },
-      parentCtx,
+      `${OP_EXECUTE_TOOL} ${toolName}`,
+      SpanKind.INTERNAL,
+      attrs,
+      OP_EXECUTE_TOOL,
     );
+    const span = this.opts.tracer.startSpan(name, spanOpts, parentCtx);
     const ctx = trace.setSpan(parentCtx, span);
     this.tools.set(toolCallId, { span, ctx, name: toolName });
     this.toolCount += 1;

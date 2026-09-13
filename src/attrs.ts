@@ -83,6 +83,23 @@ export const SPAN_LLM_REQUEST = "pi.llm_request";
 export const SPAN_TURN = "pi.turn";
 export const spanToolName = (name: string) => `pi.tool.${name}`;
 
+// gen_ai.operation.name values. Literals retain compatibility with semantic-conventions 1.28.0.
+export const OP_CHAT = "chat";
+export const OP_EXECUTE_TOOL = "execute_tool";
+export const OP_INVOKE_AGENT = "invoke_agent";
+
+/**
+ * Span naming mode. `legacy` keeps the historical `pi.*` names (dashboards and
+ * saved queries depend on them); `genai` emits the OTel GenAI agent span names
+ * (`invoke_agent {agent}` / `chat {model}` / `execute_tool {tool}`) plus
+ * `gen_ai.operation.name`, the spec SpanKind, `gen_ai.agent.name` on the
+ * interaction span, and `gen_ai.provider.name` on chat spans only. No
+ * attribute present in `legacy` is ever removed in `genai`.
+ */
+export type SpanNaming = "legacy" | "genai";
+
+export const GEN_AI_AGENT_NAME_PI = "pi";
+
 // Value used for ATTR_SYSTEM across this extension.
 export const GEN_AI_SYSTEM_PI = "pi";
 
