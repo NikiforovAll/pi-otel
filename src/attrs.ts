@@ -83,24 +83,21 @@ export const SPAN_LLM_REQUEST = "pi.llm_request";
 export const SPAN_TURN = "pi.turn";
 export const spanToolName = (name: string) => `pi.tool.${name}`;
 
-// gen_ai.operation.name values — aliased to the semconv incubating exports so
-// spans and metrics share one source of truth.
-export {
-  GEN_AI_OPERATION_NAME_VALUE_CHAT as OP_CHAT,
-  GEN_AI_OPERATION_NAME_VALUE_EXECUTE_TOOL as OP_EXECUTE_TOOL,
-  GEN_AI_OPERATION_NAME_VALUE_INVOKE_AGENT as OP_INVOKE_AGENT,
-} from "@opentelemetry/semantic-conventions/incubating";
+// gen_ai.operation.name values. Literals retain compatibility with semantic-conventions 1.28.0.
+export const OP_CHAT = "chat";
+export const OP_EXECUTE_TOOL = "execute_tool";
+export const OP_INVOKE_AGENT = "invoke_agent";
 
 /**
  * Span naming mode. `legacy` keeps the historical `pi.*` names (dashboards and
  * saved queries depend on them); `genai` emits the OTel GenAI agent span names
  * (`invoke_agent {agent}` / `chat {model}` / `execute_tool {tool}`) plus
- * `gen_ai.operation.name` and the spec SpanKind. Attributes are identical in
- * both modes.
+ * `gen_ai.operation.name`, the spec SpanKind, `gen_ai.agent.name` on the
+ * interaction span, and `gen_ai.provider.name` on chat spans only. No
+ * attribute present in `legacy` is ever removed in `genai`.
  */
 export type SpanNaming = "legacy" | "genai";
 
-// Agent name reported as gen_ai.agent.name in genai mode.
 export const GEN_AI_AGENT_NAME_PI = "pi";
 
 // Value used for ATTR_SYSTEM across this extension.

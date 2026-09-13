@@ -206,12 +206,18 @@ export default function (pi: ExtensionAPI): void {
     }
   });
 
-  pi.on("before_provider_request", async (event, _ctx) => {
+  pi.on("before_provider_request", async (event, ctx) => {
     // event.payload shape varies per provider; try to lift a model field.
     const payload = (event as any)?.payload;
     const model =
       payload?.model ?? payload?.modelId ?? payload?.modelName ?? undefined;
-    tracker?.startLlmRequest(typeof model === "string" ? model : undefined);
+    // ctx.model is a live getter for the active model — best-known provider
+    // at request start; noteAssistantMessage corrects/fills it from the
+    // response if this guess is wrong or missing.
+    tracker?.startLlmRequest(
+      typeof model === "string" ? model : undefined,
+      ctx.model?.provider,
+    );
     if (typeof model === "string") {
       tracker?.setLlmAttrs({ [ATTR_REQUEST_MODEL]: model });
     }

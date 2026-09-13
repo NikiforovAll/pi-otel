@@ -66,7 +66,7 @@ Backend auto-detect: Aspire CLI first, then Docker / Podman. Install one:
 
 For the `http/protobuf` and `http/json` protocols, `endpoint` is the **base** URL — each signal appends its own resource path (`/v1/traces`, `/v1/metrics`, `/v1/logs`). For `grpc` the endpoint is used as-is.
 
-`spanNaming: "genai"` (default `"legacy"`) renames spans to the OTel GenAI agent conventions — `invoke_agent pi` / `chat {model}` / `execute_tool {tool}` — and adds `gen_ai.operation.name` plus the spec SpanKind, so backends recognise pi as an agent. Attributes are unchanged in both modes; `legacy` keeps the `pi.*` names existing dashboards query.
+`spanNaming: "genai"` (default `"legacy"`) renames spans to the OTel GenAI agent conventions — `invoke_agent pi` / `chat {model}` / `execute_tool {tool}` — and adds `gen_ai.operation.name` plus the spec SpanKind, so backends recognise pi as an agent. It also adds `gen_ai.agent.name` on the interaction span and, on `chat` spans only, `gen_ai.provider.name` (the request's inference provider, e.g. `openai`, `aws.bedrock`). No existing attribute is ever removed in either mode; `legacy` keeps the `pi.*` names existing dashboards query.
 
 Key env var overrides: `OTEL_EXPORTER_OTLP_ENDPOINT`, `PI_OTEL_SPAN_NAMING=genai`, `PI_OTEL_METRICS=1`, `PI_OTEL_LOGS=1`, `PI_OTEL_DISABLED=1`.
 

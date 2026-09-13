@@ -41,6 +41,7 @@ import {
   ATTR_PI_TURN_INDEX,
   ATTR_PI_USER_PROMPT,
   ATTR_PI_USER_PROMPT_LENGTH,
+  ATTR_PROVIDER_NAME,
   ATTR_REQUEST_MODEL,
   ATTR_RESPONSE_MODEL,
   ATTR_SESSION_ID,
@@ -144,6 +145,35 @@ function extractToolCalls(
     calls.push({ id, type: "function", function: fn });
   }
   return calls;
+}
+
+// Provider IDs whose pi id differs from the semconv `gen_ai.provider.name`
+// value (registry rev 0c875949). Canonical/custom ids pass through unchanged.
+const PROVIDER_NAME_ALIASES: Record<string, string> = {
+  "amazon-bedrock": "aws.bedrock",
+  "azure-openai-responses": "azure.ai.openai",
+  google: "gcp.gemini",
+  "google-vertex": "gcp.vertex_ai",
+  "kimi-coding": "moonshot_ai",
+  moonshotai: "moonshot_ai",
+  "moonshotai-cn": "moonshot_ai",
+  mistral: "mistral_ai",
+  xai: "x_ai",
+  "openai-codex": "openai",
+};
+
+/**
+ * Normalize a pi provider id to the semconv `gen_ai.provider.name` value.
+ * Returns undefined for blank/non-string input so callers can treat it as
+ * "unknown" rather than setting an empty attribute.
+ */
+function normalizeProviderName(provider: unknown): string | undefined {
+  if (typeof provider !== "string") return undefined;
+  const trimmed = provider.trim();
+  if (!trimmed) return undefined;
+  return Object.hasOwn(PROVIDER_NAME_ALIASES, trimmed)
+    ? PROVIDER_NAME_ALIASES[trimmed]
+    : trimmed;
 }
 
 type PendingMsg =
@@ -290,7 +320,11 @@ export class SpanTracker {
     this.turn = null;
   }
 
-  startLlmRequest(model?: string): void {
+  /**
+   * `provider` is the best-known request-start provider id (e.g.
+   * `ctx.model?.provider`); normalized and attached only in genai mode.
+   */
+  startLlmRequest(model?: string, provider?: string): void {
     if (this.llm) {
       // Should not happen — defensive close.
       this.llm.span.end();
@@ -301,6 +335,10 @@ export class SpanTracker {
     const attrs = this.commonAttrs();
     attrs[ATTR_OPERATION_NAME] = OP_CHAT;
     if (model) attrs[ATTR_REQUEST_MODEL] = model;
+    const normalizedProvider = this.genai
+      ? normalizeProviderName(provider)
+      : undefined;
+    if (normalizedProvider) attrs[ATTR_PROVIDER_NAME] = normalizedProvider;
     const [name, spanOpts] = this.spanOpts(
       SPAN_LLM_REQUEST,
       model ? `${OP_CHAT} ${model}` : OP_CHAT,
@@ -411,6 +449,16 @@ export class SpanTracker {
     if (!this.llm) return;
     if (typeof message?.model === "string")
       this.llm.responseModel = message.model;
+    if (this.genai) {
+      // Response confirmation/fallback: a valid response provider corrects or
+      // fills the request-start value on the same open span. A missing or
+      // invalid response provider leaves the request-start value (if any)
+      // intact — no cached global state, no fabricated "unknown" sentinel.
+      const responseProvider = normalizeProviderName(message?.provider);
+      if (responseProvider) {
+        this.llm.span.setAttribute(ATTR_PROVIDER_NAME, responseProvider);
+      }
+    }
     const allowTool = this.opts.captureContent === "full";
     const toolCalls = extractToolCalls(message?.content, allowTool);
     this.llm.toolCallCount = toolCalls.length;
