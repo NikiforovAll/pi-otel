@@ -39,6 +39,29 @@ export type Notify = (msg: string, severity?: NotifySeverity) => void;
 
 let sdk: NodeSDK | null = null;
 let initOnce = false;
+let foreignWarned = false;
+
+// @opentelemetry/api and api-logs keep their global provider registry on
+// these Symbol.for keys, shared across module copies. Reading them directly is
+// the only check that also works when another extension bundles its own api
+// copy. Context and propagation are left out: our own shutdown does not
+// unregister them, so they would misfire on re-init.
+const API_GLOBAL_KEY = Symbol.for("opentelemetry.js.api.1");
+const LOGS_GLOBAL_KEY = Symbol.for("io.opentelemetry.js.api.logs");
+
+export type ForeignSignal = "trace" | "metrics" | "logs";
+
+/** Signals for which another OTel SDK already registered a global provider. */
+export function foreignOtelProviders(): ForeignSignal[] {
+  const g = globalThis as Record<symbol, unknown>;
+  const api = g[API_GLOBAL_KEY] as Record<string, unknown> | undefined;
+  const found: ForeignSignal[] = [];
+  if (api?.trace) found.push("trace");
+  if (api?.metrics) found.push("metrics");
+  // api-logs stores a bare getter function, not a keyed object.
+  if (g[LOGS_GLOBAL_KEY] !== undefined) found.push("logs");
+  return found;
+}
 
 export function probeTcp(
   host: string,
@@ -149,6 +172,21 @@ export function initSdk(
 ): NodeSDK | null {
   if (!cfg.enabled || !cfg.signals.traces) return null;
   if (initOnce) return sdk;
+
+  // A second registration does not throw: @opentelemetry/api logs a diag
+  // error, keeps the first provider, and every span we start would route to
+  // the other SDK. Bail before building anything (#9).
+  const foreign = foreignOtelProviders();
+  if (foreign.length > 0) {
+    if (!foreignWarned) {
+      foreignWarned = true;
+      notify?.(
+        `pi-otel: another OpenTelemetry SDK already registered global providers (${foreign.join(", ")}); pi-otel telemetry is disabled for this process. Unload the other extension, or set PI_OTEL_DISABLED=1 to silence this.`,
+        "warning",
+      );
+    }
+    return null;
+  }
   initOnce = true;
 
   const instanceId = `${process.pid}-${randomBytes(4).toString("hex")}`;
